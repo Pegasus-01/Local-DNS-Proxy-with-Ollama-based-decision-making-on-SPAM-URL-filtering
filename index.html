@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Ad-Block — Control Panel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:        #0c0f14;
+    --surface:   #131820;
+    --surface2:  #1a2130;
+    --border:    #1f2d40;
+    --accent:    #00d4ff;
+    --accent2:   #7c3aed;
+    --danger:    #ff4757;
+    --success:   #2ed573;
+    --warn:      #ffa502;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-ui:   'Inter', system-ui, sans-serif;
+    --r:         8px;
+    --r2:        12px;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  .shell { display: flex; min-height: 100vh; }
+
+  nav {
+    width: 220px; flex-shrink: 0; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .nav-brand { padding: 24px 20px 20px; border-bottom: 1px solid var(--border); }
+  .nav-brand .shield { font-size: 28px; display: block; margin-bottom: 6px; }
+  .nav-brand h1 { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: .08em; text-transform: uppercase; }
+  .nav-brand p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .nav-links { padding: 12px 10px; flex: 1; }
+  .nav-links a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--r); color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; transition: all .15s; cursor: pointer; }
+  .nav-links a:hover  { background: var(--surface2); color: var(--text); }
+  .nav-links a.active { background: rgba(0,212,255,.1); color: var(--accent); }
+  .nav-links .icon { font-size: 16px; width: 20px; text-align: center; }
+  .nav-status { padding: 14px 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--success); margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+  main { flex: 1; overflow: auto; }
+  .page { display: none; padding: 32px; max-width: 1200px; }
+  .page.active { display: block; }
+  .page-header { margin-bottom: 28px; }
+  .page-header h2 { font-size: 22px; font-weight: 600; }
+  .page-header p  { color: var(--muted); margin-top: 4px; font-size: 13px; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r2); padding: 20px; position: relative; overflow: hidden; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .stat-card.blue::before   { background: var(--accent); }
+  .stat-card.red::before    { background: var(--danger); }
+  .stat-card.green::before  { background: var(--success); }
+  .stat-card.purple::before { background: var(--accent2); }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+  .stat-value { font-size: 32px; font-weight: 600; font-family: var(--font-mono); margin-top: 6px; line-height: 1; }
+  .stat-card.blue   .stat-value { color: var(--accent); }
+  .stat-card.red    .stat-value { color: var(--danger); }
+  .stat-card.green  .stat-value { color: var(--success); }
+  .stat-card.purple .stat-value { color: var(--accent2); }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r2); padding: 20px; }
+  .card-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 16px; }
+
+  .top-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .domain-list { list-style: none; }
+  .domain-list li { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 12px; }
+  .domain-list li:last-child { border-bottom: none; }
+  .domain-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+  .domain-count { flex-shrink: 0; background: var(--surface2); border-radius: 4px; padding: 2px 8px; font-size: 11px; color: var(--muted); margin-left: 10px; }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .search-wrap { position: relative; flex: 1; min-width: 220px; }
+  .search-wrap input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); color: var(--text); padding: 9px 12px 9px 36px; font-size: 13px; outline: none; transition: border-color .15s; }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap .icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+
+  select, button { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); color: var(--text); padding: 9px 14px; font-size: 13px; cursor: pointer; outline: none; transition: all .15s; font-family: var(--font-ui); }
+  select:focus, button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+  button.primary:hover { background: #00b8d9; border-color: #00b8d9; }
+  button.danger  { background: rgba(255,71,87,.15); border-color: var(--danger); color: var(--danger); }
+  button.danger:hover { background: rgba(255,71,87,.25); }
+  button.success { background: rgba(46,213,115,.15); border-color: var(--success); color: var(--success); }
+  button.success:hover { background: rgba(46,213,115,.25); }
+  button.sm { padding: 5px 10px; font-size: 11px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th { text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; padding: 0 12px 10px; font-weight: 600; border-bottom: 1px solid var(--border); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 10px 12px; font-size: 12px; }
+  td.mono { font-family: var(--font-mono); }
+
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+  .badge.block  { background: rgba(255,71,87,.15);  color: var(--danger);  }
+  .badge.allow  { background: rgba(46,213,115,.12); color: var(--success); }
+  .badge.static { background: rgba(100,116,139,.15); color: var(--muted); }
+  .badge.ollama { background: rgba(124,58,237,.2);  color: var(--accent2); }
+  .badge.cache  { background: rgba(0,212,255,.1);   color: var(--accent);  }
+
+  .pagination { display: flex; align-items: center; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+  .pagination button { padding: 6px 12px; font-size: 12px; }
+  .pagination .page-info { color: var(--muted); font-size: 12px; }
+
+  .lists-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .list-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .list-section h3 span { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+  .add-domain-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .add-domain-row input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); color: var(--text); padding: 9px 12px; font-family: var(--font-mono); font-size: 12px; outline: none; }
+  .add-domain-row input:focus { border-color: var(--accent); }
+  .list-items { list-style: none; max-height: 420px; overflow-y: auto; }
+  .list-items::-webkit-scrollbar { width: 4px; }
+  .list-items::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .list-items li { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: var(--r); font-family: var(--font-mono); font-size: 12px; transition: background .1s; }
+  .list-items li:hover { background: var(--surface2); }
+  .list-items li .domain-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .empty-state { color: var(--muted); font-size: 12px; padding: 20px 0; text-align: center; }
+
+  .log-box { background: #080b10; border: 1px solid var(--border); border-radius: var(--r2); padding: 16px; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.7; max-height: 600px; overflow-y: auto; color: #8fa3b8; }
+  .log-box::-webkit-scrollbar { width: 4px; }
+  .log-box::-webkit-scrollbar-thumb { background: var(--border); }
+  .log-line.block { color: #ff6b78; }
+  .log-line.allow { color: #4ade80; }
+  .log-line.info  { color: #64748b; }
+
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 18px; font-size: 13px; opacity: 0; transform: translateY(8px); transition: all .2s; pointer-events: none; z-index: 999; max-width: 280px; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.ok  { border-color: var(--success); color: var(--success); }
+  #toast.err { border-color: var(--danger);  color: var(--danger);  }
+
+  .refresh-hint { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+  @media (max-width: 900px) {
+    .charts-row, .top-grid, .lists-grid { grid-template-columns: 1fr; }
+    nav { width: 60px; }
+    .nav-brand h1, .nav-brand p, .nav-links a span, .nav-status { display: none; }
+    .nav-links a { justify-content: center; padding: 10px; }
+    .page { padding: 20px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <nav>
+    <div class="nav-brand">
+      <span class="shield">🛡️</span>
+      <h1>Ad-Block AI</h1>
+      <p>Control Panel</p>
+    </div>
+    <div class="nav-links">
+      <a class="active" onclick="showPage('overview')" id="nav-overview"><span class="icon">📊</span><span>Overview</span></a>
+      <a onclick="showPage('decisions')" id="nav-decisions"><span class="icon">📋</span><span>Decisions</span></a>
+      <a onclick="showPage('lists')" id="nav-lists"><span class="icon">⚙️</span><span>Allow / Block</span></a>
+      <a onclick="showPage('log')" id="nav-log"><span class="icon">📄</span><span>Raw Log</span></a>
+    </div>
+    <div class="nav-status"><span class="status-dot"></span>Live · auto-refresh 10s</div>
+  </nav>
+
+  <main>
+
+    <div class="page active" id="page-overview">
+      <div class="page-header"><h2>Overview</h2><p>Live summary of DNS filtering activity</p></div>
+
+      <div class="stats-grid">
+        <div class="stat-card blue"><div class="stat-label">Total Queries</div><div class="stat-value" id="s-total">—</div><div class="stat-sub">all time in log</div></div>
+        <div class="stat-card red"><div class="stat-label">Blocked</div><div class="stat-value" id="s-blocked">—</div><div class="stat-sub" id="s-rate">—% of total</div></div>
+        <div class="stat-card green"><div class="stat-label">Allowed</div><div class="stat-value" id="s-allowed">—</div><div class="stat-sub">forwarded to DNS</div></div>
+        <div class="stat-card purple"><div class="stat-label">AI Decisions</div><div class="stat-value" id="s-ollama">—</div><div class="stat-sub">by Ollama / cached</div></div>
+      </div>
+
+      <div class="charts-row">
+        <div class="card"><div class="card-title">Activity — last 24 hours</div><canvas id="timeline-chart" height="90"></canvas></div>
+        <div class="card"><div class="card-title">Decision Sources</div><canvas id="source-chart" height="160"></canvas></div>
+      </div>
+
+      <div class="top-grid">
+        <div class="card"><div class="card-title">Top Blocked Domains</div><ul class="domain-list" id="top-blocked-list"></ul></div>
+        <div class="card"><div class="card-title">Top Allowed Domains</div><ul class="domain-list" id="top-allowed-list"></ul></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-decisions">
+      <div class="page-header"><h2>Decision Log</h2><p>Every DNS query and its verdict</p></div>
+      <div class="card">
+        <div class="toolbar">
+          <div class="search-wrap"><span class="icon">🔍</span><input type="text" id="search-input" placeholder="Search domain or reason…" oninput="onSearch()"></div>
+          <select id="filter-verdict" onchange="loadDecisions()">
+            <option value="">All verdicts</option><option value="BLOCK">Blocked</option><option value="ALLOW">Allowed</option>
+          </select>
+          <select id="filter-source" onchange="loadDecisions()">
+            <option value="">All sources</option><option value="static">Static</option><option value="ollama">Ollama</option><option value="cache">Cache</option>
+          </select>
+          <span class="refresh-hint" id="last-refresh"></span>
+        </div>
+        <table>
+          <thead><tr><th>Time</th><th>Domain</th><th>Verdict</th><th>Source</th><th>Reason</th><th>Action</th></tr></thead>
+          <tbody id="decisions-tbody"></tbody>
+        </table>
+        <div class="pagination"><button onclick="changePage(-1)">← Prev</button><span class="page-info" id="page-info">—</span><button onclick="changePage(1)">Next →</button></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-lists">
+      <div class="page-header"><h2>Allow &amp; Block Lists</h2><p>Manual overrides take priority over AI decisions</p></div>
+      <div class="lists-grid">
+        <div class="list-section">
+          <h3>✅ Allowlist <span id="allow-count"></span></h3>
+          <div class="add-domain-row"><input type="text" id="allow-input" placeholder="example.com" onkeydown="if(event.key==='Enter') addToList('allow')"><button class="success" onclick="addToList('allow')">+ Allow</button></div>
+          <ul class="list-items" id="allow-list"></ul>
+        </div>
+        <div class="list-section">
+          <h3>🚫 Blocklist <span id="block-count"></span></h3>
+          <div class="add-domain-row"><input type="text" id="block-input" placeholder="ads.example.com" onkeydown="if(event.key==='Enter') addToList('block')"><button class="danger" onclick="addToList('block')">+ Block</button></div>
+          <ul class="list-items" id="block-list"></ul>
+        </div>
+      </div>
+      <div class="card" style="margin-top:20px; color: var(--muted); font-size:12px; line-height:1.8;">
+        <strong style="color:var(--text)">How overrides work:</strong><br>
+        Domains in the <strong style="color:var(--success)">Allowlist</strong> always resolve, bypassing AI analysis.<br>
+        Domains in the <strong style="color:var(--danger)">Blocklist</strong> always return NXDOMAIN, bypassing AI analysis.<br>
+        Adding to one list automatically removes from the other.<br><br>
+        These changes apply <strong style="color:var(--accent)">immediately</strong> — the proxy reads these files fresh on every query, no restart needed.
+      </div>
+    </div>
+
+    <div class="page" id="page-log">
+      <div class="page-header"><h2>Raw Proxy Log</h2><p>Live output from proxy.log</p></div>
+      <div class="toolbar" style="margin-bottom:12px">
+        <button onclick="loadLog()">↻ Refresh</button>
+        <select id="log-lines" onchange="loadLog()"><option value="50">Last 50 lines</option><option value="100" selected>Last 100 lines</option><option value="250">Last 250 lines</option></select>
+        <span class="refresh-hint" id="log-refresh-hint"></span>
+      </div>
+      <div class="log-box" id="log-box"></div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let currentPage = 1, searchTimer = null, timelineChart = null, sourceChart = null;
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'overview')  loadStats();
+  if (name === 'decisions') loadDecisions();
+  if (name === 'lists')     loadLists();
+  if (name === 'log')       loadLog();
+}
+
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show ' + type;
+  clearTimeout(el._t); el._t = setTimeout(() => el.className = '', 2400);
+}
+
+async function loadStats() {
+  const r = await fetch('/api/stats').then(r => r.json()).catch(() => null);
+  if (!r) return;
+  document.getElementById('s-total').textContent   = fmt(r.total);
+  document.getElementById('s-blocked').textContent = fmt(r.blocked);
+  document.getElementById('s-allowed').textContent = fmt(r.allowed);
+  document.getElementById('s-rate').textContent     = r.block_rate + '% of total';
+  document.getElementById('s-ollama').textContent   = fmt((r.sources['ollama']||0) + (r.sources['cache']||0));
+
+  renderTopList('top-blocked-list', r.top_blocked);
+  renderTopList('top-allowed-list', r.top_allowed);
+
+  const labels = r.timeline.map(t => t.hour + 'h');
+  if (timelineChart) timelineChart.destroy();
+  timelineChart = new Chart(document.getElementById('timeline-chart'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Blocked', data: r.timeline.map(t=>t.block), backgroundColor: 'rgba(255,71,87,.7)', borderRadius: 3, stack: 'a' },
+      { label: 'Allowed', data: r.timeline.map(t=>t.allow), backgroundColor: 'rgba(46,213,115,.5)', borderRadius: 3, stack: 'a' },
+    ]},
+    options: { responsive: true, plugins: { legend: { labels: { color: '#64748b', font: { size: 11 } } } },
+      scales: { x: { stacked: true, ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1f2d40' } },
+                y: { stacked: true, ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1f2d40' } } } }
+  });
+
+  const srcLabels = Object.keys(r.sources), srcData = Object.values(r.sources);
+  const srcColors = { static: '#64748b', ollama: '#7c3aed', cache: '#00d4ff' };
+  if (sourceChart) sourceChart.destroy();
+  sourceChart = new Chart(document.getElementById('source-chart'), {
+    type: 'doughnut',
+    data: { labels: srcLabels, datasets: [{ data: srcData, backgroundColor: srcLabels.map(l => srcColors[l] || '#334155'), borderWidth: 0, hoverOffset: 6 }] },
+    options: { cutout: '68%', plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 }, padding: 14 } } } }
+  });
+}
+
+function renderTopList(id, items) {
+  const ul = document.getElementById(id);
+  if (!items.length) { ul.innerHTML = '<li style="color:var(--muted);font-size:12px">No data yet</li>'; return; }
+  ul.innerHTML = items.map(i => `<li><span class="domain-name">${esc(i.domain)}</span><span class="domain-count">${i.count}</span></li>`).join('');
+}
+
+function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => { currentPage = 1; loadDecisions(); }, 280); }
+
+async function loadDecisions() {
+  const search = document.getElementById('search-input').value.trim();
+  const verdict = document.getElementById('filter-verdict').value;
+  const source = document.getElementById('filter-source').value;
+  const params = new URLSearchParams({ page: currentPage, per_page: 50, search, verdict, source });
+  const r = await fetch('/api/decisions?' + params).then(r => r.json()).catch(() => null);
+  if (!r) return;
+
+  document.getElementById('page-info').textContent = `Page ${r.page} of ${r.pages}  (${fmt(r.total)} results)`;
+  document.getElementById('last-refresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+  const tbody = document.getElementById('decisions-tbody');
+  if (!r.entries.length) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">No decisions found</td></tr>`; return; }
+
+  tbody.innerHTML = r.entries.map(e => {
+    const ts = e.ts ? e.ts.slice(11, 19) : '';
+    const vBadge = e.verdict === 'BLOCK' ? `<span class="badge block">🚫 BLOCK</span>` : `<span class="badge allow">✅ ALLOW</span>`;
+    const sBadge = `<span class="badge ${e.source || 'static'}">${e.source || '?'}</span>`;
+    const domain = esc(e.domain || ''), reason = esc(e.reason || '');
+    return `<tr>
+      <td class="mono" style="color:var(--muted);white-space:nowrap">${ts}</td>
+      <td class="mono">${domain}</td><td>${vBadge}</td><td>${sBadge}</td>
+      <td style="color:var(--muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${reason}</td>
+      <td><button class="sm success" onclick="quickAdd('allow','${domain}')">Allow</button>
+          <button class="sm danger"  onclick="quickAdd('block','${domain}')" style="margin-left:4px">Block</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function changePage(dir) { currentPage = Math.max(1, currentPage + dir); loadDecisions(); }
+
+async function quickAdd(list, domain) {
+  await fetch('/api/' + list + 'list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain }) });
+  toast(`${domain} added to ${list}list ✓`);
+}
+
+async function loadLists() {
+  const [al, bl] = await Promise.all([fetch('/api/allowlist').then(r=>r.json()), fetch('/api/blocklist').then(r=>r.json())]);
+  document.getElementById('allow-count').textContent = `(${al.length})`;
+  document.getElementById('block-count').textContent = `(${bl.length})`;
+  renderList('allow-list', al, 'allow');
+  renderList('block-list', bl, 'block');
+}
+
+function renderList(id, items, type) {
+  const ul = document.getElementById(id);
+  if (!items.length) { ul.innerHTML = `<div class="empty-state">No entries yet</div>`; return; }
+  ul.innerHTML = items.map(d => `<li><span class="domain-text">${esc(d)}</span><button class="sm danger" onclick="removeFromList('${type}','${esc(d)}')">✕</button></li>`).join('');
+}
+
+async function addToList(type) {
+  const input = document.getElementById(type === 'allow' ? 'allow-input' : 'block-input');
+  const domain = input.value.trim().toLowerCase();
+  if (!domain) return;
+  await fetch('/api/' + type + 'list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain }) });
+  input.value = '';
+  toast(`${domain} added to ${type}list ✓`);
+  loadLists();
+}
+
+async function removeFromList(type, domain) {
+  await fetch('/api/' + type + 'list/' + encodeURIComponent(domain), { method: 'DELETE' });
+  toast(`${domain} removed`);
+  loadLists();
+}
+
+async function loadLog() {
+  const n = document.getElementById('log-lines').value;
+  const r = await fetch('/api/log?n=' + n).then(r => r.json()).catch(() => ({ lines: [] }));
+  const box = document.getElementById('log-box');
+  document.getElementById('log-refresh-hint').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  box.innerHTML = r.lines.map(l => {
+    let cls = 'info';
+    if (l.includes('BLOCK') || l.includes('🚫')) cls = 'block';
+    else if (l.includes('ALLOW') || l.includes('✅')) cls = 'allow';
+    return `<div class="log-line ${cls}">${esc(l)}</div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function fmt(n) { return n?.toLocaleString() ?? '—'; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+setInterval(() => {
+  if (document.getElementById('page-overview').classList.contains('active'))  loadStats();
+  if (document.getElementById('page-decisions').classList.contains('active')) loadDecisions();
+  if (document.getElementById('page-log').classList.contains('active'))       loadLog();
+}, 10000);
+
+loadStats();
+</script>
+</body>
+</html>
