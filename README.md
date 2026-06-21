@@ -270,9 +270,3 @@ Kill or disable whatever is shown (commonly `avahi-daemon` on 5353, `systemd-res
 - The static blocklist patterns are a known-network fast-path; the LLM is the fallback for anything not already categorized
 - Manual allow/block lists always override the AI — useful for false positives or for permanently blocking something the model occasionally misjudges
 - This is a personal/home-network tool, not hardened for multi-user or production deployment (the dashboard has no auth — don't expose port 8080 beyond your local network)
-
----
-
-## License
-
-Personal project — use, modify, and adapt freely.
