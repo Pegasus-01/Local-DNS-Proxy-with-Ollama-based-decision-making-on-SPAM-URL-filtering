@@ -1,5 +1,7 @@
 # 🛡️ AI Ad-Block — Local DNS Proxy with LLM-Based Filtering
 
+*This project is strictly for personal use/learning. Do not use it in any production environment.
+*This is still in the last stages of development, which might cause some errors to occur - once all fixed, this disclaimer will be removed.
 A self-hosted DNS proxy that sits between your machine and the internet, using a **locally-run LLM (via Ollama)** to decide — in real time — whether a domain should be blocked (ads, trackers, analytics, telemetry) or allowed.
 
 Comes with a live web dashboard to monitor traffic, search the decision log, and manage manual allow/block overrides.
